@@ -1,9 +1,10 @@
 <#
  .SYNOPSIS
-    Populate groups with computers named after operating system
+    Populate defined groups with computers by matching operating system
 
  .DESCRIPTION
     Configure distinguished name where to create groups
+    Configure group names and operating system to match
     Disabled computer objects will not be member of its group
 
  .NOTES
@@ -19,12 +20,12 @@
         Action      =
         @{
             Execute          = 'C:\Windows\system32\WindowsPowerShell\v1.0\powershell.exe'
-            Argument         = '-ExecutionPolicy RemoteSigned -NoProfile -File .\CreateComputerGroups.ps1'
+            Argument         = '-ExecutionPolicy RemoteSigned -NoProfile -File .\CreateComputerGroupsByMatch.ps1'
             WorkingDirectory = "$($PWD.Path)"
         } | ForEach-Object {
             New-ScheduledTaskAction @_
         }
-        Trigger     = New-ScheduledTaskTrigger -Once -At (Get-Date -Format "yyyy-MM-dd HH:00") -RepetitionInterval (New-TimeSpan -Minutes 5)
+        Trigger     = New-ScheduledTaskTrigger -Once -At (Get-Date -Format "yyyy-MM-dd HH:00") -RepetitionInterval (New-TimeSpan -Minutes 1)
         Principal   = New-ScheduledTaskPrincipal -UserId 'NT AUTHORITY\SYSTEM' -LogonType ServiceAccount -RunLevel Highest
         Settings    = New-ScheduledTaskSettingsSet
     } | ForEach-Object {
@@ -38,38 +39,68 @@
 # Get domain info
 $BaseDN = Get-ADDomain | Select-Object -ExpandProperty DistinguishedName
 $DomainName = Get-AdDomainController | Select-Object -ExpandProperty Domain
+$DomainNetbiosName = Get-ADDomain | Select-Object -ExpandProperty NetBIOSName
+$DomainPrefix = $DomainNetbiosName.Substring(0, 1).ToUpper() + $DomainNetbiosName.Substring(1)
 
 # Configure where to create groups
 $ComputerGroupsDN = "OU=Computer Groups,OU=$DomainName,$BaseDN"
 
+# Configure group names and operating system to match
+$Groups =
+@(
+    #  Name of group           Regex to match operating system
+    @{ Name = 'Workstations';  MatchStr = 'Windows \d\d'; },
+    @{ Name = 'Servers';       MatchStr = 'Server'; }
+)
+
 # Check path
 if (Test-Path -Path "AD:$ComputerGroupsDN")
 {
+    foreach($Group in $Groups)
+    {
+        # Get group
+        New-Variable -Name $Group.Name -Force -Value (Get-ADGroup -Filter "Name -eq '$DomainPrefix $($Group.Name)'" -SearchBase $ComputerGroupsDN -SearchScope OneLevel -Properties Member)
+
+        # Check if group exist
+        if(-not (Get-Variable -Name $Group.Name -ValueOnly))
+        {
+            # Create new group
+            New-Variable -Name $Group.Name -Force -Value (New-ADGroup -Name "$DomainPrefix $($Group.Name)" -DisplayName "$DomainPrefix $($Group.Name)" -Description $Group.Name -Path $ComputerGroupsDN -GroupScope Global -GroupCategory Security -PassThru)
+        }
+    }
+
     # Get all computer objects running Windows
     foreach($Computer in (Get-ADComputer -Filter "Name -like '*' -and OperatingSystem -like 'Windows*'" -Properties OperatingSystem))
     {
-        # Get operating system group
-        $OSGroup = Get-ADGroup -Filter "Name -eq '$($Computer.OperatingSystem)'" -SearchBase $ComputerGroupsDN -SearchScope OneLevel -Properties Member
+        # Initialize
+        $GroupObj = $null
 
-        # Check if group exist
-        if(-not $OSGroup -and $Computer.Enabled)
+        # Check groups
+        foreach($Group in $Groups)
         {
-            # Create new group
-            $OSGroup = New-ADGroup -Name $Computer.OperatingSystem -DisplayName $Computer.OperatingSystem -Description $Computer.OperatingSystem -Path $ComputerGroupsDN -GroupScope Global -GroupCategory Security -PassThru
-        }
-
-        # Check if member of group
-        if(-not $OSGroup.Member.Where({ $_.StartsWith("CN=$($Computer.Name),") }))
-        {
-            # Add computer to group if enabled
-            if($Computer.Enabled)
+            if ($Group.MatchStr -and $Computer.OperatingSystem -match $Group.MatchStr)
             {
-                Add-ADPrincipalGroupMembership -Identity $Computer -MemberOf @("$($OSGroup.Name)")
+                $GroupObj = Get-Variable -Name $Group.Name -ValueOnly
             }
         }
-        elseif (-not $Computer.Enabled) # Remove computer from group if disabled
+
+        # Check if group found
+        if ($GroupObj)
         {
-            Remove-ADPrincipalGroupMembership -Identity $Computer -MemberOf @("$($OSGroup.Name)") -Confirm:$false
+            # Add computer to group if enabled and not member of group
+            if($Computer.Enabled -and
+               -not $GroupObj.Member.Where({ $_.StartsWith("CN=$($Computer.Name),") }))
+            {
+                Add-ADPrincipalGroupMembership -Identity $Computer -MemberOf @("$($GroupObj.Name)")
+            }
+            elseif (-not $Computer.Enabled) # Remove computer from group if disabled
+            {
+                Remove-ADPrincipalGroupMembership -Identity $Computer -MemberOf @("$($GroupObj.Name)") -Confirm:$false
+            }
+        }
+        else
+        {
+            Write-Warning -Message "No group matched `"$($Computer.OperatingSystem)`" for computer `"$($Computer.Name)`""
         }
     }
 }
@@ -77,8 +108,8 @@ if (Test-Path -Path "AD:$ComputerGroupsDN")
 # SIG # Begin signature block
 # MIIekQYJKoZIhvcNAQcCoIIegjCCHn4CAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUqwiVYtLNW4wUHEFhy+TS2/T+
-# v2egghgSMIIFBzCCAu+gAwIBAgIQJTSMe3EEUZZAAWO1zNUfWTANBgkqhkiG9w0B
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUasAcUhBJosHNa70HJqCP6wRm
+# G8ugghgSMIIFBzCCAu+gAwIBAgIQJTSMe3EEUZZAAWO1zNUfWTANBgkqhkiG9w0B
 # AQsFADAQMQ4wDAYDVQQDDAVKME43RTAeFw0yMTA2MDcxMjUwMzZaFw0yMzA2MDcx
 # MzAwMzNaMBAxDjAMBgNVBAMMBUowTjdFMIICIjANBgkqhkiG9w0BAQEFAAOCAg8A
 # MIICCgKCAgEAzdFz3tD9N0VebymwxbB7s+YMLFKK9LlPcOyyFbAoRnYKVuF7Q6Zi
@@ -209,34 +240,34 @@ if (Test-Path -Path "AD:$ComputerGroupsDN")
 # TE0AotjWAQ64i+7m4HJViSwnGWH2dwGMMYIF6TCCBeUCAQEwJDAQMQ4wDAYDVQQD
 # DAVKME43RQIQJTSMe3EEUZZAAWO1zNUfWTAJBgUrDgMCGgUAoHgwGAYKKwYBBAGC
 # NwIBDDEKMAigAoAAoQKAADAZBgkqhkiG9w0BCQMxDAYKKwYBBAGCNwIBBDAcBgor
-# BgEEAYI3AgELMQ4wDAYKKwYBBAGCNwIBFTAjBgkqhkiG9w0BCQQxFgQUvG5bMYDy
-# j7F+en9d+g74tIGwtGowDQYJKoZIhvcNAQEBBQAEggIARbDueue9h+KOctbjBI61
-# BzyHS5COBGPH/SpanOmjU4ikvG5Imc7iEU/v8WMQ3XkxWJ/K2HYvZl1CNkZ+GjJU
-# 2wgz923qTaN1qUVeQGUbrTHFjk5SpNJ0DwlujbIYIKjz31TXg8ZsJrk7yZ7VRQAt
-# eoKszDeFCHWoWd3n2r0hc4KEHgCqABoVtbHrJqvaRJtHythP5Ltsv5L0/YemIPxn
-# nV02QZWR3t/pY71XheRMqA/Gyp6rV7WB1X4PDyW5lhpEGbbPc5++DLuhjmfCuK7S
-# Rl7JMOPLb9TlIY3kFrHrlFZRSNrsfkJUIICqy3Bhf/+Kyuib5kf5WKY5MZkcFete
-# tZPn+Lg/TMoYjdT4srSqBHOyRxr0G7sfhT532FzTwC9bjlG4jjS+9t1uU07nKG4D
-# pal3g18sGkSnjRg8y0M1KtPYISzxVOuz0wCu1u6SYktDowczp6jybpipYvSemF/F
-# Ojw/B/V5VTs+Yv+/NnVhhW6L7w2AZk9DfvcOfyFcRi8rqBBHPTjarHltcxfIhL2Y
-# 9dh5TjfXBstxkHYckj24yRGCJk5jEsIdRHiYvT+2IZOeprwLveKfcctSMHfi719X
-# ZN7PklN9xrqLi6PZrxi6B0/AaU17KMvMp3Rwt1tJwK9P4grWENzjXZqK38EYEfcM
-# PhWIgiB6N6WCHvedX1jrgb+hggMgMIIDHAYJKoZIhvcNAQkGMYIDDTCCAwkCAQEw
+# BgEEAYI3AgELMQ4wDAYKKwYBBAGCNwIBFTAjBgkqhkiG9w0BCQQxFgQUFsYl1+9B
+# 6SEDAOFLhDgmbiGIfw0wDQYJKoZIhvcNAQEBBQAEggIAAJF76w85IurFHLTbwXbb
+# e6Ga91Gmn8y7TqF/krE9YoYYcF8dePN9TnwcPnoOUh9BqEEf2GTKj2eZbQrlRP/6
+# llZjPc+VPu61/e+njn+FEKLPYKYTf5x1ula5rw3jyBTsdqSenREWFmU1LlsE2zO0
+# RLuU/wxIdWvqPqFG+NvpHlBrTzdByOQQYa86dWBoFpGsE/rW1wdXlrxVXlWb5QaL
+# vUzUkyXjRySm/TcHGPLZ6UKwWCDIFOtIHLf2XH7DJwj4IFbcMQuc6T96D64tpvrX
+# srGM9AI6Bn7jDFhV4CXcnQmK/Tfy1LpVGik4LLIGrZMxVcjxpcW54B1WsXqhysc5
+# nEhrj0mRd/uto9RdRAP3NZXJFpx8onGfxXvnE+5cbAGBDM6g4/D8X45chXLiBGuv
+# Lsusw50Zs+0HEztfyTzx8+eVzhBiNIEZzsba7TmJiHGRt3IHEGx4JadQ+flVE8fJ
+# Eo4Ub5STG24HYdhhlF5NPV5T4LLYCmntVX3/XIfDt+5masDET/6w8gEwd6FMdoLo
+# ciTzH/A4wg7iTojqpUva8yG64dH3D0IFa4ss+1b2To88PTcliBGp9YjYY7SPTEyy
+# Po/NUMQ+QFOXK3wpQD9sk3teDe5rNDE2Q8iSDiXvqGFwfBGmjwkxwlXf6q1BqSAu
+# lVZ+fo4dBME7twPahTN1edmhggMgMIIDHAYJKoZIhvcNAQkGMYIDDTCCAwkCAQEw
 # dzBjMQswCQYDVQQGEwJVUzEXMBUGA1UEChMORGlnaUNlcnQsIEluYy4xOzA5BgNV
 # BAMTMkRpZ2lDZXJ0IFRydXN0ZWQgRzQgUlNBNDA5NiBTSEEyNTYgVGltZVN0YW1w
 # aW5nIENBAhAMTWlyS5T6PCpKPSkHgD1aMA0GCWCGSAFlAwQCAQUAoGkwGAYJKoZI
-# hvcNAQkDMQsGCSqGSIb3DQEHATAcBgkqhkiG9w0BCQUxDxcNMjMwNTExMDgwMDAy
-# WjAvBgkqhkiG9w0BCQQxIgQgwL+67e4pL8R2R9OTcOiacrmqZ8igtgRixlHbEove
-# PL8wDQYJKoZIhvcNAQEBBQAEggIAmmaKlT5McxkY/zJqsXqJsMUkuXEd/s9MGfde
-# BRRNmi7ggDzuearBMjII4jz8PaSFTn7H/F//PCBKt41Y6qivGf2jNJNNpiSZDTDz
-# dbkmLu4pjJ2hege0uq18MHAE5U3cquHeDOZA+0TPgjMQOAnWE0oSKggud+BR76rr
-# RLCOias9Y1WgV+gjhQIrUBnzAFu7H/LLvggi+hP88wGBacp84/hE7whz5kaVH6ir
-# riktC5asG4VZuOw6lKlKcMrnuH4dqSjRxulMePFc8JfD8Gbax1nGeE4hwvH/r7ob
-# iY6W9IN1rOTj9B0fGTy1qv/RYZbvhocy2+C/xnc+BJRnpno1Yb7vf6Qy/GSXnp5t
-# SqS2Axc5DGjVzGkbK0LHSKrbZaOMIrbyg33GrwoaNFyST5VAsoA2bFWdbfznLHaQ
-# 2lVEmsva6MPa1Gth3yOFkShRfUyPIOYvRYZvhj7S9v+Rm8zHjuPF/AtIAZBNUGWG
-# BU2jWCt2mJSTZC1cYP87I5ubFeeTWdYCPMIx6wg08DgbxHSCRP4qZqJNH/ao0aEC
-# nYtYYn1cPDMQJzIkwn32vP0RCOWABCqTXEfO13b0nfaNgMFWNXJoMG5yWKT8xKdn
-# H9r5A++H6KMVmiB2zD26fpjt8N3/V4LL4kS27V4dJyogJlxNVdAyb6vnsf0ki+YE
-# Z50e1cM=
+# hvcNAQkDMQsGCSqGSIb3DQEHATAcBgkqhkiG9w0BCQUxDxcNMjMwNTExMTAwMDAy
+# WjAvBgkqhkiG9w0BCQQxIgQgVx2UR5EsToqSLcYe9eoufopFbaZ/Xt+URxas4vev
+# 4/AwDQYJKoZIhvcNAQEBBQAEggIARUWfTLwUVWuhMZvAr/9Tx7k9jiFq4ZyUPsCD
+# pwHhReB335Vtq9LB9/ym5bo7hbOyq/YWBJ1odgEkLdFs44Wu7smyuF+rQ7hIES5e
+# azbWon8wQlT2JWZ+BLY1sBDs+jH49DLpfSlQWJtGW5qnzmlGIFRTJld4+6GoImn1
+# aS4cngxHPK0nLR+SF2FCK9XGAcaB7Sa3+7kE/SPkPeh3xrkamNIw82AGnSkCuUnZ
+# L+u1x7pwHJgPvEND73wOZFzntrj8+a/B82XgS8q7dGStJVaxthINwaue9nIo0PzH
+# uZ2TdLa9PFK7FJziF5Vdi/Yc+Gioc0HycxUihlaeCbkyHruA0bva/tPSpwBtqNAt
+# 7xtoLVYVcCXp+tyDgeToCje52B02AUG8LolOhsNGkSfguTuLbEDGvRGv/j3AtVWO
+# 7ox9RFDfTX2s4z0qZSP4QSkS4z6WyM8Zo0aaD2MustJfTc9CnPd2m+Yl3meWMjkL
+# ljeQjLhHpGCiWU+skbt4mvLWeSX80hheezUdJQjhbeJKWvh9sAODty9UiX/+Djou
+# 1DBCMIb1B/7iEvuTSkWdjy9fVEN3vu/Ry8V44z1QJc7qR/+3RkG9rmGep8lNEtqd
+# 9pgzp4/g71Q+KXaVlHjIWNYhPDURjXZjqn/v65kQuHwKcF8U7p7dr+brYYmVYIz5
+# uVpfXl8=
 # SIG # End signature block
