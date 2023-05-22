@@ -50,7 +50,10 @@ $Groups =
 @(
     #  Name of group           Regex to match operating system
     @{ Name = 'Workstations';  MatchStr = 'Windows \d\d'; },
-    @{ Name = 'Servers';       MatchStr = 'Server'; }
+    @{ Name = 'Servers';       MatchStr = 'Server'; },
+
+    # Keep for non-matched objects
+    @{ Name = 'Other Operating Systems';  MatchStr = $null; }
 )
 
 # Check path
@@ -68,8 +71,6 @@ if (Test-Path -Path "AD:$ComputerGroupsDN")
             New-Variable -Name $Group.Name -Force -Value (New-ADGroup -Name "$DomainPrefix $($Group.Name)" -DisplayName "$DomainPrefix $($Group.Name)" -Description $Group.Name -Path $ComputerGroupsDN -GroupScope Global -GroupCategory Security -PassThru)
         }
     }
-
-    [String]::Empty | Out-File -FilePath '.\CreateComputerGroupsByMatching.log'
 
     # Get all computer objects running Windows
     foreach($Computer in (Get-ADComputer -Filter "Name -like '*' -and OperatingSystem -like 'Windows*'" -Properties OperatingSystem))
@@ -102,7 +103,12 @@ if (Test-Path -Path "AD:$ComputerGroupsDN")
         }
         else
         {
-            Write-Output -Message "No group matched `"$($Computer.OperatingSystem)`" for computer `"$($Computer.Name)`"" | Out-File -FilePath '.\CreateComputerGroupsByMatching.log' -Append
+            $GroupObj = Get-Variable -Name 'Other Operating Systems' -ValueOnly
+
+            if (-not $GroupObj.Member.Where({ $_.StartsWith("CN=$($Computer.Name),") }))
+            {
+                Add-ADPrincipalGroupMembership -Identity $Computer -MemberOf @("$($GroupObj.Name)")
+            }
         }
     }
 }
@@ -110,8 +116,8 @@ if (Test-Path -Path "AD:$ComputerGroupsDN")
 # SIG # Begin signature block
 # MIIekQYJKoZIhvcNAQcCoIIegjCCHn4CAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUf/g/1E0mxcakrBYf3q5OSXHd
-# ekGgghgSMIIFBzCCAu+gAwIBAgIQJTSMe3EEUZZAAWO1zNUfWTANBgkqhkiG9w0B
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU5DwlWaox9Iqaxrzm07oPI4kC
+# lzSgghgSMIIFBzCCAu+gAwIBAgIQJTSMe3EEUZZAAWO1zNUfWTANBgkqhkiG9w0B
 # AQsFADAQMQ4wDAYDVQQDDAVKME43RTAeFw0yMTA2MDcxMjUwMzZaFw0yMzA2MDcx
 # MzAwMzNaMBAxDjAMBgNVBAMMBUowTjdFMIICIjANBgkqhkiG9w0BAQEFAAOCAg8A
 # MIICCgKCAgEAzdFz3tD9N0VebymwxbB7s+YMLFKK9LlPcOyyFbAoRnYKVuF7Q6Zi
@@ -242,34 +248,34 @@ if (Test-Path -Path "AD:$ComputerGroupsDN")
 # TE0AotjWAQ64i+7m4HJViSwnGWH2dwGMMYIF6TCCBeUCAQEwJDAQMQ4wDAYDVQQD
 # DAVKME43RQIQJTSMe3EEUZZAAWO1zNUfWTAJBgUrDgMCGgUAoHgwGAYKKwYBBAGC
 # NwIBDDEKMAigAoAAoQKAADAZBgkqhkiG9w0BCQMxDAYKKwYBBAGCNwIBBDAcBgor
-# BgEEAYI3AgELMQ4wDAYKKwYBBAGCNwIBFTAjBgkqhkiG9w0BCQQxFgQUNvqLJ0lZ
-# 8AY8u6SL/eHT0rtaLlcwDQYJKoZIhvcNAQEBBQAEggIAebn9jYOHu1VU6hYRgmSZ
-# 1op2qTaN8SltKckTvW4kbL27W6szgo15Svwg63q2qP/q7K0K/fkZkAAeQHA8F8jo
-# 0DWdqgOHKv47Q91iMAIRxi0agpVtghga83wI8JOZPQ3vSJUsceqLpVVIhaWquOCV
-# eE1GA34QpF2XGxGQWlh5Go70owDW34IIvrI0aiFzpkBJ6wzTGZcDV3qLcVuxXOJG
-# EOL9ojMekchogZX9SlRPeWjkpzmlTKdVEB62z5Lif/YKNENvkU3uQ3dSeRN+ovoy
-# gkuiuxtzR3ydWpsI75cMiTQFtTFKFeHBRcx6ygf8Y0YYiQ6/Igrhmw0LbgARHxOp
-# rXrQMYpkmpKcvWxcnRUItvYjQhOeJxVt1n/eZvhbSc8XimWeTYTQs9uNaD04RorM
-# p04QlUE7clv86cSQR+TDDIOyLCRGIVGbdB+EGcWDAAVPETDGEp0BPT3JynAnEjL+
-# AcASFjXkZHIT19SHV1va/WFQ8xslzSNUT8m3HEZ74bZOevRRmozm9PawSz4pTXdY
-# +KqxxLi8EC1ic6As5GVzr1VeskXTDwkePFuzXWVtk1+4G76IlwQxsl7p4JMwdjDb
-# w2b7ofuAteurYbd+wbRu8WJGrnjKGf89vyVf25lUuh6P/SvRciH+6Jm6V+/An37e
-# s9Lr+RlrQ9DXudt5My8evX+hggMgMIIDHAYJKoZIhvcNAQkGMYIDDTCCAwkCAQEw
+# BgEEAYI3AgELMQ4wDAYKKwYBBAGCNwIBFTAjBgkqhkiG9w0BCQQxFgQU/S5mg4hw
+# hz+rvB6ODQ8XB6HwzMgwDQYJKoZIhvcNAQEBBQAEggIAKmzx22aCO9bJy7oEwuXe
+# dPUWeyslcd++HW06Iq9dBv1w6qMErldqQu6Z+qQv7eQ6nGDsYOPl2d+pqTz/pYFt
+# FicnI6u3c/hz3LSVGjs3/ZCvJoMKBthXKcNu1qZ16mCez1ZX4CDQZDSOOUjDxhlU
+# d8ejWqwql2UkgK3wfN/Cx8KjnuucVVifWIcPP9YaS9mHa/M1xqR6FBRYcJjXsICn
+# OSzlzGc4833xfmJxhxpZyNCQjXmWkiMveBf/8HDTcS0o1s+oeMb/PXd9OblW741v
+# QecjkPH3pvwdFcpmj669w3sZoB3uiR5WjzmQaxSZ4Hzg4Z+fmfcAnMdt6IMLTD9b
+# J1ZQ1+ONrnrOfompkUYVmMG+37mOYOnULlJbgBtsXRPVQuOm5p7Tg2wWyqHBLVv9
+# 4nVglrOX0rQwnPJZYVFXhJtYp/5UoeLqvawIUyOWXM/66chqDfBI/ZJ5rTOM5AsF
+# LEFNRAkkRj6eghVl35BhJzMLuZODg7mq5djFCeBCty2wUOnGtPWYqVVCIEFSIFpG
+# 26fAa5rwx18DEYnVhTgxB80+PpJ1TpJ6hbF3vf/HLF1FxOnfnRBmlEAuxgs9E0Zi
+# E3WPw2NjQXDkFvEF+btyqgR0nSW+psxJA52xtGGomRyjp8jsf6OmuxwT8mAcBcw2
+# ouDzB1mOVH2JOjRceLf5BOuhggMgMIIDHAYJKoZIhvcNAQkGMYIDDTCCAwkCAQEw
 # dzBjMQswCQYDVQQGEwJVUzEXMBUGA1UEChMORGlnaUNlcnQsIEluYy4xOzA5BgNV
 # BAMTMkRpZ2lDZXJ0IFRydXN0ZWQgRzQgUlNBNDA5NiBTSEEyNTYgVGltZVN0YW1w
 # aW5nIENBAhAMTWlyS5T6PCpKPSkHgD1aMA0GCWCGSAFlAwQCAQUAoGkwGAYJKoZI
-# hvcNAQkDMQsGCSqGSIb3DQEHATAcBgkqhkiG9w0BCQUxDxcNMjMwNTIyMTIwMDAz
-# WjAvBgkqhkiG9w0BCQQxIgQgfxOtPJw33Q3WZC5SPCw4B4tdD1s9mjYhiXGy0KCq
-# TOwwDQYJKoZIhvcNAQEBBQAEggIAKDbnF7XjdN7yCZYiFXaOwIRadUOqDvo0lvUM
-# zNd6l2Msg6UjecR/leeJpyJ9NfIpMVTavVMUugy/m5M7GnxdBljOHT/sjn5Ey9Ob
-# KEn0tHKZASBmWSKhPe5LqHkX0aHKlFjWfjTHp3GDK7IeCuMMQbFzJtjnHe3b7OLi
-# Ljd4f2OzoDAMLchwSR2YJfK5RRSimtI+NDQHULJghWiENyl70OIEyx7cghiR3trO
-# 4Xpg5rnid62Q7ySAUYrFx5RG5KRxS90/rzrRkhV0yjkfbgPA5MyJV2XtVMO7OE6K
-# UFnLZyTPMz7QcUL7USHPe1+l5Fk6d4JWHeEgxJuNii424yBQCel3qvXpvucno2oo
-# KpIRv0DWS0pir19lVOArM6oBAQ7XXNqjpnlncU+jE1Ctr6oyffpV6zE/hZvFqrp4
-# YqlvpfU6o3PX2ot54HBqyFQdTBifJUYULeZKBdWvdGwH+Z8b/dpULG62bdmLql4j
-# jFTHjicftcj4VQmWuVqSfJ9bgaJHtWohFW9yeikNgWMEGpjwKdVfZLZ4ttlJtrUk
-# qLoJUltYV98Fz9uD0hI/dSqRRmica9uXx7gKdxjf3qd7jeD7vifMy+VB+SxCvLle
-# 93IP1l5DZ7hD8QBzcNpqtEZQISPlmMGKAD/JL4Y+cfMCZdBguoQbS0cDa0i/TWBp
-# h3Lxu/Q=
+# hvcNAQkDMQsGCSqGSIb3DQEHATAcBgkqhkiG9w0BCQUxDxcNMjMwNTIyMTMwMDAx
+# WjAvBgkqhkiG9w0BCQQxIgQgq4An3qqUpKoOx9uBvXj2nSZQZZ2mvG8G1kTBAwPc
+# Z3kwDQYJKoZIhvcNAQEBBQAEggIAN4i2lstQEatAgWzYajr0H3geJ+qTwRuR+5sf
+# zpjUE6MLbO3O9BN/GY+9oGT6yWlLxtJF6yHTusksgMiA3M3AwxWMAjS/LZC3QzAz
+# KM9edU8IxB+ERuHlJTxk4mHErwv+EbO3Qdrqua6qABwh3Ck1dnWEZHFM7FB6ZZiM
+# XQBI+YnS6dUauzSoNUgVgWWA+SkwWyq0BAcH/rN1PLFQ4r/pKBl64YACV5YHuPxh
+# +MAbMUEEpcRmhaONy08PJtEW0NrE3FHCR9CAQXxCdnfjNYVpuIl7LI2KkyU9Jxzf
+# ef4fE+1KHwfH19qvgaRivXkKF0Jtov5HqMu4bHF4/klH0NVxJIYVBqvXO8YFthJH
+# i4DCZiHf4BIT6Bjdu3DDLzcW75+JVZ01qgW1Wmfu4d1EyDoFgN1nad70H2RBkCly
+# rawxiITaRzkbhUk3WkIfveQDT2A/7pfJ/mx6XZlr8kjM9yGPguznByKve/ICa4Sw
+# IqrcKLYe3woElrmqR/i2MysbuEM3BL4NAVp9rTOOUR/DTcBCIMVbkADvPYgWPsp3
+# DT4QkAgXiND8vA4EQ07ZDSubp/aj5AkAFbXtiZKSgIZ/Db7I6PDF/1yaPrWbN8R/
+# ACZ+suYPoFHdxBxUFM719XTtjc2ByOfL7lCt8UEt/6b45DFh0IFoCZnJU3Ot4QNr
+# kTN9KBM=
 # SIG # End signature block
