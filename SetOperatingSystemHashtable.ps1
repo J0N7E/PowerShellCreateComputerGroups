@@ -13,30 +13,70 @@
     https://github.com/J0N7E
 #>
 
+# Configure builds
+$Builds =
+@{
+    # Windows 10
+    '10.0 (10240)' = '1507';
+    '10.0 (10586)' = '1511';
+    '10.0 (14393)' = '1607';
+    '10.0 (15063)' = '1703';
+    '10.0 (16299)' = '1709';
+    '10.0 (17134)' = '1803';
+    '10.0 (17763)' = '1809';
+    '10.0 (18362)' = '1903';
+    '10.0 (18363)' = '1909';
+    '10.0 (19041)' = '2004';
+    '10.0 (19042)' = '20H2';
+    '10.0 (19043)' = '21H1';
+    '10.0 (19044)' = '21H2';
+    '10.0 (19045)' = '22H2';
+
+    # Windows 11
+    '10.0 (22000)' = '21H2';
+    '10.0 (22621)' = '22H2';
+    '10.0 (22631)' = '23H2';
+
+    # Windows Server
+    '10.0 (20348)' = '21H2';
+}
+
 # Initialize operating systems hashtable
 $OperatingSystems = @{}
 
 # Get all computer objects running Windows
-foreach($Computer in (Get-ADComputer -Filter "Name -like '*' -and OperatingSystem -like 'Windows*'" -Properties OperatingSystem,MemberOf))
+foreach($Computer in (Get-ADComputer -Filter "Name -like '*' -and OperatingSystem -like 'Windows*'" -Properties OperatingSystem,OperatingSystemVersion,DistinguishedName))
 {
-    # Check if key exist
-    if(-not $OperatingSystems.ContainsKey($Computer.OperatingSystem))
+    if ($Computer.Enabled)
     {
-        # Create new key
-        $OperatingSystems.Add($Computer.OperatingSystem, @())
+        if ($Builds.ContainsKey($Computer.OperatingSystemVersion))
+        {
+            $Version = $Builds.Item($Computer.OperatingSystemVersion)
+        }
+        else
+        {
+            $Version = $Computer.OperatingSystemVersion
+        }
+
+        $Key = "$($Computer.OperatingSystem) $Version"
+
+        # Check if key exist
+        if(-not $OperatingSystems.ContainsKey($Key))
+        {
+            # Create new key
+            $OperatingSystems.Add($Key, @())
+        }
+
+        # Add computer
+        $OperatingSystems.Item($Key) += $Computer.DistinguishedName
     }
-
-    # Add computer
-    $OperatingSystems.Item($Computer.OperatingSystem) += $Computer.Name
 }
-
-$OperatingSystems
 
 # SIG # Begin signature block
 # MIIekwYJKoZIhvcNAQcCoIIehDCCHoACAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUc8zAVzSzwwBN3F3lwydX5Nmi
-# L5qgghgUMIIFBzCCAu+gAwIBAgIQdFzLNL2pfZhJwaOXpCuimDANBgkqhkiG9w0B
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUnqjzpa/LJxVWyl7j8Z7kpw4w
+# 5VmgghgUMIIFBzCCAu+gAwIBAgIQdFzLNL2pfZhJwaOXpCuimDANBgkqhkiG9w0B
 # AQsFADAQMQ4wDAYDVQQDDAVKME43RTAeFw0yMzA5MDcxODU5NDVaFw0yODA5MDcx
 # OTA5NDRaMBAxDjAMBgNVBAMMBUowTjdFMIICIjANBgkqhkiG9w0BAQEFAAOCAg8A
 # MIICCgKCAgEA0cNYCTtcJ6XUSG6laNYH7JzFfJMTiQafxQ1dV8cjdJ4ysJXAOs8r
@@ -167,34 +207,34 @@ $OperatingSystems
 # c7aZ+WssBkbvQR7w8F/g29mtkIBEr4AQQYoxggXpMIIF5QIBATAkMBAxDjAMBgNV
 # BAMMBUowTjdFAhB0XMs0val9mEnBo5ekK6KYMAkGBSsOAwIaBQCgeDAYBgorBgEE
 # AYI3AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwG
-# CisGAQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBR4TRdd
-# FEKFoUqH1ML/5785fg/ZFzANBgkqhkiG9w0BAQEFAASCAgB97H+/bwt70M320vBZ
-# yoVM85qlkX7wmLpTiUSIFMQO/ayMaFC6iEuPA/i/h8i7fzGXnfvwrIA0cljLgWAB
-# ArzJJ0J47sQnxySG39hlCpkZJLlg0IS9qz6xTjvzPEckBE1iYFShuUrjyU0vKQvI
-# KcKy2+2FwRwy8nhW4pPuH7SuNmA1heBw8k0OYWTc2pMA1dTrVwQ+sLrUMWgfqr2I
-# whEbO7mzEwk4S2vtBPAldalPvytIGhHL7ZknnsczqCjqSarqPtfRM9UCH4CAJlnJ
-# aWLlHI9zaUQf0ZMrIoNGXfheT+/nEyuX4RF1+6YB42C25R1g3M3wVNxHDQF8wpVI
-# 8DWEe4POoYnDkdl96j0boZrJWAaUM9+Zy6Bkic+mw7tAwpokgkQlyGryoHgQs04e
-# x4MGticJ4fMd9me2UuNYTGjngYhIbAgb0aVRyEfOurilmqs4iZp/TIlXYcYf+8Iq
-# 9WkOYvH+Ur91ZHQR/9sNFIwtIrarp9fY1KCa9JqP9aLBm9CLLMNhvt/+Pyu9iOEG
-# ZEjlgpB7+YLDoVuOKa5UoPoZ9wvK9uu6AOSA3dPnNypVl1kcQEJoJZ8xNlQu5QCV
-# DCWihv0R2Zg6/734GDbCyu2zKxjqgkD0ZpW7LA9hcv8FathbLC/71RHkuez2TSxE
-# UwpUt6drsJJpgzYyjgQ9qJBsMaGCAyAwggMcBgkqhkiG9w0BCQYxggMNMIIDCQIB
+# CisGAQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBTTYtJx
+# ShQ0leHtrSSflOl6Ms3FYDANBgkqhkiG9w0BAQEFAASCAgBPbIgS8FF9NIsoPt6L
+# 0zTv+vSNNpjWIQCQo0XNUIB1tCQ6r8MlI3RCBPpT1XA74goIzVJGniiASYkHtI+2
+# MHeXntWVy0TCRVPlYstnsNHW1IXG8+OcefETiFE/Oiw/h7hoTftCVjklG++fuZwv
+# cZiDV36hb7DNl7rLZvzKHoy56xllHMFWnSBCBqxh92UHfkWPCwk//NVg+INym5J+
+# NPreE1H6rbaCVc4jXaBeThthSbSnHDFD+e3l8oIAAoQngdTvJD/hfw6SZvj38FKz
+# /NSFeTomiVYDheynNlvG9mYqk7I9b6KTvtrZaFX70hHxsKmDmbsUM+HFd8l5lqi4
+# 6MwbQhKc2exSSRtbVhlsmnsApTH927Mz15QQY2eL/JI0FB3KlBsjJvH2TaN6bB/j
+# 9aakq2GEs24C6jaTYWyrAqCK5Q77/4PyksACN9NOS1/m/7U4Rq6hfJAT10AbEagO
+# K7f+BKI0Hfn2g/Neach4/w8hW1k9K/WuSEJ1ESMKt8cmLuyf5La4x7kT4SfQLWqC
+# K6QEgVAIDVtUX+qTYh4pvghMIcB1GZpz+0M6xyG6v6OV7Q/Z37sBX/S0topsx7wW
+# lsqUjm2zCRN2Xp1hWOYzkekQlNufSKgIItE3k6RO6BWFcv1FFiuQ8ADuFjuHX9qa
+# OMd5jlXsVXCdQXcwf+ALVYh/x6GCAyAwggMcBgkqhkiG9w0BCQYxggMNMIIDCQIB
 # ATB3MGMxCzAJBgNVBAYTAlVTMRcwFQYDVQQKEw5EaWdpQ2VydCwgSW5jLjE7MDkG
 # A1UEAxMyRGlnaUNlcnQgVHJ1c3RlZCBHNCBSU0E0MDk2IFNIQTI1NiBUaW1lU3Rh
 # bXBpbmcgQ0ECEAVEr/OUnQg5pr/bP1/lYRYwDQYJYIZIAWUDBAIBBQCgaTAYBgkq
-# hkiG9w0BCQMxCwYJKoZIhvcNAQcBMBwGCSqGSIb3DQEJBTEPFw0yMzExMDMxMzAw
-# MDNaMC8GCSqGSIb3DQEJBDEiBCAP8jzYmTfuYr/yq+6t9y7VulHL3wt/FbOihy8c
-# yEy1bTANBgkqhkiG9w0BAQEFAASCAgB3FackIkNCTZ6IIMqXIhsnH375iRMmTeDW
-# eLt5AY3YIhVbXz1nfdCSxPjG1Vx9SQw16Qj9x0oKmD6TNiVq7Ntq/yZaV4PG0GVc
-# ILJQzmC+R4v0GONO/kYh0kWTWO/v1mTatMitNZGAdW+nSq32wHRtisSPT+IQ6MQE
-# 8dZ08/jqcfaY2wRza4aDisbpScoMTu5Q0e8TPTr1lFZc6J4BknU8mMNhWmBx5fhO
-# tAnv02Rh1nI8nbCWcFBQiD4mufzcwE0KzaGfraNOVX/2/GwOwNydbVbWVBzZWv6H
-# YixxPbWywmaYqkb3oYuAX3bEQ3kHBmcAPqiwOiDvpbfdptAPuW36n8KOX33BCJtI
-# cUpR25M8mOL/U4pxpIQtgxua5lJpn4pEVicdJoKm7zqDEX4bgKOtxhYDq8wFjpAl
-# 9O/HTD3lUYmFFTPBvjYl4PQIVVa0xkEO8/uQTx0qQpIZsqQuuHlfp2dNBM2rSq/p
-# d2JOtTYlmSlL6lAq7OunBrz7hlJg01vV1PKiJWbg6iKTk00frGivm/tIx5qUzgJO
-# P0dpkxRie6OhT+aT2cLqhH2ToxfSAqkCMikZhNe6oQ6//xMPc1p/N5dUX2BqxQnG
-# WKXNJaK8ZOtOmdVBaW7m+t2vmtYpKdUQyxKxAKXjH79jyHsi3GC81pI+iYVh0FtK
-# UA/IgNPT5A==
+# hkiG9w0BCQMxCwYJKoZIhvcNAQcBMBwGCSqGSIb3DQEJBTEPFw0yMzExMDMxNTAw
+# MDJaMC8GCSqGSIb3DQEJBDEiBCCY3KyWHKitRe3XdXXFhmglspuW/5Tw3X5zq1hb
+# zxnB3TANBgkqhkiG9w0BAQEFAASCAgB1Va/7NBjnBrr8AGJ9kjuuwmdzyRzzfLF/
+# oF/X+7/RHwhqrk+45YY1pj3s1RBxfh9sTzS4EYf1Pi31AxWy0XTECekIXcAwE/8I
+# 3eDPnYZQwfzW4S7C2RskCZjTZVyBr8iV0nWol3DKj/XAEQT7LoOeRLqdypRcESwS
+# k+e1AdCwkP33GW8aX9fV+7grL6qu9mj1WGOTGmhWUk64JUpcS55lejbtnibGHESL
+# HSf+d2Ksyj2T8yM1/VhVHL7BRBMbX7BcrMDR8afWUfS6Y/o6QB3smWhzkumNQ8Fk
+# E9apk64zUomTnItsAzHX5crNz6xpNQaaHTkDbIvstjthV/5YBfK8K9qRatvMBoOJ
+# WytRQgEDbWhb/L7zoBDMIIPt+fvSBi61+unY08lGuQLfOXtJc68xJVfNdUb2C8H6
+# GEQaCr1ok535CxEXwa220HK1CEueTsvaMB2McB5LedilmR5MD0FT46ifD65xtECS
+# 76+nJXYwTBYhkutSOhD1F32SDsYafd3NobbLk5/44kYsLU9MsgB+oA0WyR9jubOF
+# aS+4s0Hn6c1mATZQiK+s1nmSs0KU/wq8tsJAUbPZ46fjqx16Q1K7tIyTL4Btntkh
+# hg0AYWpdXmyNZ7pZOQJzQ4HxW2TdCEGOrwVgIyPRfEy9WGi2AwGxTevsM+d1BcsO
+# VuTBMRqZAg==
 # SIG # End signature block
