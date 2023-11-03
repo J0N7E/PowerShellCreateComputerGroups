@@ -54,10 +54,10 @@ $Groups =
     @{ Name = 'Servers';       MatchStr = 'Server'; },
 
     # Keep for non-matched objects
-    @{ Name = "Non-Matched Operating Systems";  MatchStr = $null; }
+    @{ Name = "Other Operating Systems";  MatchStr = $null; }
 )
 
-$NonMatchGroupName = "$DomainPrefix $($Groups[-1].Name)"
+$NoMatchGroupName = "$DomainPrefix $($Groups[-1].Name)"
 
 # Check path
 if (Test-Path -Path "AD:$ComputerGroupsDN")
@@ -106,14 +106,14 @@ if (Test-Path -Path "AD:$ComputerGroupsDN")
                 Remove-ADPrincipalGroupMembership -Identity $Computer -MemberOf @("$($GroupObj.Name)") -Confirm:$false
             }
 
-            if ($Computer.MemberOf -match "$NonMatchGroupName")
+            if ($Computer.MemberOf -match "$NoMatchGroupName")
             {
-                Remove-ADPrincipalGroupMembership -Identity $Computer -MemberOf @("$NonMatchGroupName") -Confirm:$false
+                Remove-ADPrincipalGroupMembership -Identity $Computer -MemberOf @("$NoMatchGroupName") -Confirm:$false
             }
         }
         else
         {
-            $GroupObj = Get-Variable -Name "$NonMatchGroupName" -ValueOnly
+            $GroupObj = Get-Variable -Name "$NoMatchGroupName" -ValueOnly
 
             if (-not $GroupObj.Member.Where({ $_.StartsWith("CN=$($Computer.Name),") }))
             {
@@ -126,8 +126,8 @@ if (Test-Path -Path "AD:$ComputerGroupsDN")
 # SIG # Begin signature block
 # MIIekwYJKoZIhvcNAQcCoIIehDCCHoACAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU/2lB34hdnUBT7C1wJqHiIJ3o
-# 5AqgghgUMIIFBzCCAu+gAwIBAgIQdFzLNL2pfZhJwaOXpCuimDANBgkqhkiG9w0B
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUyk1gD2oZiQTCIOZyzxcujccX
+# t2qgghgUMIIFBzCCAu+gAwIBAgIQdFzLNL2pfZhJwaOXpCuimDANBgkqhkiG9w0B
 # AQsFADAQMQ4wDAYDVQQDDAVKME43RTAeFw0yMzA5MDcxODU5NDVaFw0yODA5MDcx
 # OTA5NDRaMBAxDjAMBgNVBAMMBUowTjdFMIICIjANBgkqhkiG9w0BAQEFAAOCAg8A
 # MIICCgKCAgEA0cNYCTtcJ6XUSG6laNYH7JzFfJMTiQafxQ1dV8cjdJ4ysJXAOs8r
@@ -258,34 +258,34 @@ if (Test-Path -Path "AD:$ComputerGroupsDN")
 # c7aZ+WssBkbvQR7w8F/g29mtkIBEr4AQQYoxggXpMIIF5QIBATAkMBAxDjAMBgNV
 # BAMMBUowTjdFAhB0XMs0val9mEnBo5ekK6KYMAkGBSsOAwIaBQCgeDAYBgorBgEE
 # AYI3AgEMMQowCKACgAChAoAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwG
-# CisGAQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBRIIdrk
-# 94Znwvt9ilIq1Yb0To91KTANBgkqhkiG9w0BAQEFAASCAgB6SYM0NQT4tVhwua5d
-# qeafScctpI1LNqt7SZACOFf35zv+iu49dSWpcrce8LAT2G0LkbkkLhiJBOL18mcq
-# WQURkXI3hyTB1VrT7U46s+LeNMSAYbxK5hbcxI8tl3CsEbnpyt1UXx7tauKDyz/E
-# 8UqXVKbUOxfYb66Y2HfEc8AmOpApsDZSqTQsRw94KOwoVpgi78sNwjjI/snhfY2m
-# HUPxQpcWPxGfWvuy8qs33R5eTSW4D42thJIB/t3DXLtHC/FrhO331KsLJLdUgDhI
-# 3AQ8OReXagJ3PWsaAZpESVlsLYmzAGZYraiVcbzdAIOp7PuqHUTPqzokGG7bZXfU
-# G4PYKJ8heZTnN8/1+pYSrTo+XJfUW5R5pHbEQOwRGfpX60naSLEn9VnjDIzUTD0b
-# LHepbgtwVnG4+wYTo7LBqweKPo98EWwCVD4Km713rINy3InBJUlbEy76QhxvRNMy
-# H377EHOjU4yTSvmvGo1nx5NKMPMQcbVSSmmNK1fdzCY5Ama8Ap1i2O1mdVNv3s2K
-# iPLKBsHR2tRj/Jv1HcxcioT5i7WjbNsPnEMMQLPZChLGFTJJxlQdkFNrvsF4pHDi
-# fl+Cnr5uRgj1dX2lKzH+G1KdisPfoHgS1IKUftkvRH6MO/uUFc/a7Rb/M+riweEa
-# 8ldIXjk06RywIQYSO+QWCB2WxaGCAyAwggMcBgkqhkiG9w0BCQYxggMNMIIDCQIB
+# CisGAQQBgjcCAQsxDjAMBgorBgEEAYI3AgEVMCMGCSqGSIb3DQEJBDEWBBRirQBy
+# p+4vcCUcPVc6h9EqoS6NETANBgkqhkiG9w0BAQEFAASCAgAf+mO0Un1kPSdvp93L
+# FI8bv3HQQ0oogMCEA6r2MJU6gKzygdiUF6qu/19+0SntpZFEktO5u6YFYLeckFdW
+# QH3QirgUXOOzBtbIWgX0Ri13/K9VfxQq65ocLDlnAq2UuceVJ63SKq405xillbWY
+# fdtmCNH+bye/BorBu7oGhVhJCcrLGoGfsWB4cQYYYJtA6BhfxEp/0dxqgb6A69Z1
+# IdVIh63VZZgbcL63WlWIS5ZhxUfjNdGFq4SXW9sb6jBM/HbFoG1n0zcAjZrprH7q
+# 9ndYlHMeMqjcqYNZKkFOmnT5zTKccks5zJmY2cvp2qvEES8yW1SWz57OHzNxkOW+
+# diQjIYGWvZlPeO9OLQzxkqL4mb8j8wT7yP5e6tLqY+oCMVaJeOdcIevVozrJHSQf
+# zTV8av+B1X3K9Okjd1l282IDdaMUiXkyueblAFmDz0nXFel0HE2xVscukAA6nWFB
+# j0CgvyGb5yxvCSbBb3G1zLcNc+9KNJDaB1XbufidCSpPhzmQONwdwZQjIxUyFpv6
+# hXOSPyJkfST3hYA9IW8vP0RQbPaPikrv+9fWgqKZ4droUkkw3SZPY6KvSL9120dG
+# TzV5Ahbdzx7wvvJOaCdpkdHpPH/Z+gk696fPt1K3UOPW90lhSu6KmkoCLB3jPegN
+# dIFOWxJ53USjaGYhnGPQHw6JhaGCAyAwggMcBgkqhkiG9w0BCQYxggMNMIIDCQIB
 # ATB3MGMxCzAJBgNVBAYTAlVTMRcwFQYDVQQKEw5EaWdpQ2VydCwgSW5jLjE7MDkG
 # A1UEAxMyRGlnaUNlcnQgVHJ1c3RlZCBHNCBSU0E0MDk2IFNIQTI1NiBUaW1lU3Rh
 # bXBpbmcgQ0ECEAVEr/OUnQg5pr/bP1/lYRYwDQYJYIZIAWUDBAIBBQCgaTAYBgkq
-# hkiG9w0BCQMxCwYJKoZIhvcNAQcBMBwGCSqGSIb3DQEJBTEPFw0yMzExMDIxMjAw
-# MDNaMC8GCSqGSIb3DQEJBDEiBCCbEU88qn/pkkcmwMzLZwvDPhq6437cpGEgQSnH
-# dUo2yzANBgkqhkiG9w0BAQEFAASCAgBNc0AHzv1qFvJjKWRM2/JxILpDDvd4Ms2V
-# Os1+Ka6rKc9FUFuh2x5iD1yLzQiUJq3+2xp4Xwf1hkhOqMKcVrvzGyJI+XgcFW+R
-# zomssVWJRW56VdVBKFQkxmv6Xz/hRV10mXY+2Ob/2oSFdXfNZNWfgRKPr5TjfN/g
-# 6Pk3fDzhyilkZUqRyZFbEdo1WYtks/yoRAh3lKC58n1QNS1zpabk5LqmauN3jeMd
-# +xWib1N+CwoCvguSxal1j3OS5SBnI2GJCdKEBE5PMNRSjMvThuoluUIwoAi9lHqS
-# irYsvjf8X5tZMRsYI3LC1oGixTZS+JJb+HCChLOHoHXn+EwB+TI+YyXJWbaY9eZO
-# 0JMzyADI/+3556/7OhbWbt5DzsEIbTYR9Rr4q39SEv6j2ZRNX/DHDLGFICW9KDiT
-# BhHsz10Ir16DPY9JzCH+DhY+rhT88p7BpK345Lo6KUM/jkhQY+eKmqJrIF5GcUxu
-# 1/EzPAke+DnthrEpIeoL6lP9m0weCkpwUQuHdq7wHLt+aV/ruoV+LkUmvh5N4Duc
-# b7I9T3zocsUcHOEptt9O3HCVQB9K+uvZzPZRZoNV22q9/JU4nwEfxykyY5ilbPW3
-# WZwLhfj5X3UYJWirnktkAxNUeSIEbMC0pzqA7923a6U34uZEOCLX5EVENU7ivs3N
-# 7aAtz7TdfQ==
+# hkiG9w0BCQMxCwYJKoZIhvcNAQcBMBwGCSqGSIb3DQEJBTEPFw0yMzExMDMwOTAw
+# MDRaMC8GCSqGSIb3DQEJBDEiBCD6zGTb7fsqahHyNJBmprpcTYTUxZEfl//e3P1O
+# +zG/yjANBgkqhkiG9w0BAQEFAASCAgA+ZvavEdSX/XBQhWkQ+Zg7Qh8HmrAAC2Os
+# ejgSSKnD/1g30E9BD7Qi2hribZk2zdQS7yVCADm+zOpRqTYk5M8vnpUWhIz9UX08
+# 0mqVhz92HsOrMcWH3n/RXT2Up5urwirZc9cIYp7l0aUgNCiku0p9ZaaVsloACSCA
+# 9Vsa5CYlC/54LOeSHT6HMhxQqqXF1MqXWsmNoZ3/PG7aab2P2MUJ7tKfnI/6O+60
+# kLE3vxVhCpNYlvdcuDk9/IGhowQ9O2C/vqAjjs03yALPaE8EzlXpHvT5cFb8IsTT
+# xWtinDtOWGH9/b6YQc7rPx33GkkX9fFBKg3zqpjMTq57L2HNLgTIgtdADKIREFaW
+# P7dYHYH4HIbcqoDYD58muCW3ubzfBDU2XErIBWIcU+A/FIpwmVXVPIomi4ZJLXmB
+# V5ax4KFztkahKjgQ+xXDFYmNukonGWWtQiiV75IazU9fXxMdbvLpiYJB4eDJadzU
+# XOAP+hYwn5LK7LRP5peXwTk8q6kOlr/teb3cj8oAUko61S4Mf3Uvy1Ylf0MvdspG
+# DS7vLf2Y8RCTtnLCxYzR49dBJM0o1ueirPpmcGkRENLZOGCw054MuSi5dbJH8tfi
+# hC+YEm7WVA4V5DP5zsgvVcR0l3wXd5N5HZf8I1pbA2kVhiX5m5c3/illOk2Kddkl
+# cj4ncEuROg==
 # SIG # End signature block
