@@ -1,10 +1,10 @@
 <#
  .SYNOPSIS
-    Populate hashtable with operating systems and computers
+    Populate hashtable with operating systems and computers.
 
  .DESCRIPTION
-    Create hashtable with keys of each existing operating system
-    Add array of computers to each key
+    Create hashtable with keys of each existing operating system.
+    Add array of computers to each key.
 
  .NOTES
     AUTHOR Jonas Henriksson
